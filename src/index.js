@@ -4,19 +4,24 @@ const redis = require('redis');
 const app = express();
 
 const PORT = process.env.PORT || 3001;
-// const REDIS_URL = process.env.REDIS_URL || 'localhost';
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-const redisClient = redis.createClient({ url: 'redis://redis' });
+const redisClient = redis.createClient({ url: REDIS_URL });
 
-redisClient.connect().then(() => {
-    console.log("Connected to Redis");
-    app.listen(PORT, () => {
-        console.log(`Counter app listening at port ${PORT}`);
-    });
-}).catch(err => {
-    console.error('Redis Client Error', err);
-    process.exit(1); 
-});
+(async () => {
+    try {
+        await redisClient.connect();
+        console.log("Connected to Redis");
+
+        app.listen(PORT, () => {
+            console.log(`Counter app listening at port ${PORT}`);
+        });
+
+    } catch (err) {
+        console.error('Error connecting to Redis:', err);
+        process.exit(1);
+    }
+})();
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
@@ -24,7 +29,6 @@ app.use(express.json());
 
 app.post('/counter/:bookId/incr', async (req, res) => {
     const { bookId } = req.params;
-    console.log(`Increment request received for bookId: ${bookId}`);
 
     try {
         const newCount = await redisClient.incr(`book:${bookId}:count`);
@@ -35,7 +39,6 @@ app.post('/counter/:bookId/incr', async (req, res) => {
         res.status(500).send('Error incrementing counter');
     }
 });
-
 
 app.get('/counter/:bookId', async (req, res) => {
     const { bookId } = req.params;
